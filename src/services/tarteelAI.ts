@@ -1,10 +1,10 @@
 
-import { pipeline } from "@huggingface/transformers";
+import { pipeline, AutomaticSpeechRecognitionPipeline } from "@huggingface/transformers";
 import { QuranVerse } from "@/data/quranVerses";
 import { RecitationFeedback } from "@/components/FeedbackPanel";
 import { toast } from "sonner";
 
-let speechModelPromise: Promise<ReturnType<typeof pipeline>> | null = null;
+let speechModelPromise: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
 
 const loadSpeechModel = async () => {
   if (!speechModelPromise) {
@@ -13,7 +13,10 @@ const loadSpeechModel = async () => {
       speechModelPromise = pipeline(
         "automatic-speech-recognition",
         "openai/whisper-tiny" // Using smaller model for browser compatibility
-      ).catch(error => {
+      ) as Promise<AutomaticSpeechRecognitionPipeline>;
+      
+      // Catch any errors during model loading
+      speechModelPromise.catch(error => {
         console.error("Failed to load speech model:", error);
         toast.error("Failed to load speech recognition model. Using fallback implementation.");
         speechModelPromise = null;
@@ -51,7 +54,7 @@ const calculateArabicTextSimilarity = (text1: string, text2: string): number => 
   
   // Calculate similarity score
   const maxLength = Math.max(normalized1.length, normalized2.length);
-  return matches / maxLength;
+  return maxLength > 0 ? matches / maxLength : 0;
 };
 
 // Function to transcribe audio using HuggingFace's transformers.js
@@ -68,7 +71,9 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob): Promise<string
     const arrayBuffer = await audioBlob.arrayBuffer();
     
     // Transcribe the audio
-    const result = await transcriber(new Uint8Array(arrayBuffer));
+    const result = await transcriber(new Uint8Array(arrayBuffer), {
+      return_timestamps: false
+    });
     
     return result.text || "";
   } catch (error) {

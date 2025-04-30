@@ -74,8 +74,11 @@ export const analyzeTarteel = async (
       }
     }
     
-    // Calculate accuracy score based on improved similarity
-    const accuracy = Math.round(similarity * 100);
+    // Calculate accuracy score based on correctly pronounced words
+    // Instead of using similarity, we'll use the ratio of correct words to total words
+    const correctWordsCount = correctWords.length;
+    const totalWordsCount = targetWords.length;
+    const accuracy = Math.round((correctWordsCount / totalWordsCount) * 100);
     
     // Generate suggestions based on mistakes
     const suggestions = generateSuggestions(mistakes, targetVerse.surahName);

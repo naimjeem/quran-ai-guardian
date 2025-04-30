@@ -83,8 +83,10 @@ export const analyzeTarteelRecitation = async (
       }
     }
     
-    // Calculate accuracy score (weighted by similarity)
-    const accuracy = Math.round(similarity * 100);
+    // Calculate accuracy score based on correctly pronounced words instead of similarity
+    const correctWordsCount = correctWords.length;
+    const totalWordsCount = targetWords.length;
+    const accuracy = Math.round((correctWordsCount / totalWordsCount) * 100);
     
     // Generate suggestions based on mistakes
     const suggestions = generateSuggestions(mistakes, targetVerse.surahName);

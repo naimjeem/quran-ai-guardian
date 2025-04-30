@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 
 interface AudioPlayerProps {
   audioUrl: string | null;
-  label?: string;
+  label?: string | React.ReactNode;
 }
 
 const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, label = 'Audio Player' }) => {
@@ -89,7 +89,11 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, label = 'Audio Play
   
   return (
     <div className="space-y-2">
-      {label && <p className="text-sm font-medium">{label}</p>}
+      {label && (
+        <div className="text-sm font-medium">
+          {label}
+        </div>
+      )}
       
       <audio
         ref={audioRef}

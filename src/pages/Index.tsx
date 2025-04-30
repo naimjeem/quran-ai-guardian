@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { quranVerses } from '@/data/quranVerses';
 import { analyzeTarteelRecitation } from '@/services/tarteelAI';
-import { Info, BookOpen, Mic, History } from 'lucide-react';
+import { Info, BookOpen, Mic, History, Volume2 } from 'lucide-react';
 
 const Index = () => {
   const [selectedVerseId, setSelectedVerseId] = useState<string>("1-1");
@@ -25,6 +25,9 @@ const Index = () => {
     verseId: string;
     accuracy: number;
   }>>([]);
+  
+  // Get the selected verse object
+  const selectedVerse = quranVerses.find(v => v.id === selectedVerseId);
   
   const handleVerseSelect = (verseId: string) => {
     setSelectedVerseId(verseId);
@@ -107,7 +110,21 @@ const Index = () => {
                       onVerseSelect={handleVerseSelect} 
                     />
                     
-                    <div className="pt-4">
+                    {selectedVerse?.recitationUrl && (
+                      <div className="mt-4 pt-4 border-t border-tarteel-gold/20">
+                        <AudioPlayer
+                          audioUrl={selectedVerse.recitationUrl}
+                          label={
+                            <div className="flex items-center gap-2">
+                              <Volume2 className="h-4 w-4 text-tarteel-primary" />
+                              <span>Professional Qari Recitation</span>
+                            </div>
+                          }
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="pt-4 border-t border-tarteel-gold/20">
                       <RecordingButton 
                         onRecordingComplete={handleRecordingComplete}
                         isProcessing={isProcessing}
@@ -135,6 +152,7 @@ const Index = () => {
                   
                   <ol className="list-decimal list-inside space-y-2 text-sm">
                     <li>Select a verse from the dropdown</li>
+                    <li>Listen to the professional Qari recitation</li>
                     <li>Click "Start Recording" and recite the verse</li>
                     <li>Click "Stop Recording" when done</li>
                     <li>Wait for AI analysis of your recitation</li>

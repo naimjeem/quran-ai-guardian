@@ -1,34 +1,28 @@
-
-import { pipeline, AutomaticSpeechRecognitionPipeline } from "@huggingface/transformers";
+import { pipeline } from "@huggingface/transformers";
 import { QuranVerse } from "@/data/quranVerses";
 import { RecitationFeedback } from "@/components/FeedbackPanel";
 import { toast } from "sonner";
 
-let speechModelPromise: Promise<AutomaticSpeechRecognitionPipeline> | null = null;
+// We'll create a more specific type definition for the speech recognition pipeline
+let speechRecognitionPipeline: any = null;
 
 const loadSpeechModel = async () => {
-  if (!speechModelPromise) {
+  if (!speechRecognitionPipeline) {
     try {
       // Load the model only once and cache it
-      speechModelPromise = pipeline(
+      speechRecognitionPipeline = await pipeline(
         "automatic-speech-recognition",
-        "openai/whisper-tiny" // Using smaller model for browser compatibility
-      ) as Promise<AutomaticSpeechRecognitionPipeline>;
+        "Xenova/whisper-small" // Using a model that's compatible with transformers.js
+      );
       
-      // Catch any errors during model loading
-      speechModelPromise.catch(error => {
-        console.error("Failed to load speech model:", error);
-        toast.error("Failed to load speech recognition model. Using fallback implementation.");
-        speechModelPromise = null;
-        throw error;
-      });
+      return speechRecognitionPipeline;
     } catch (error) {
-      console.error("Error initializing speech model:", error);
-      toast.error("Failed to initialize speech recognition. Using fallback implementation.");
-      speechModelPromise = null;
+      console.error("Failed to load speech model:", error);
+      toast.error("Failed to load speech recognition model. Using fallback implementation.");
+      throw error;
     }
   }
-  return speechModelPromise;
+  return speechRecognitionPipeline;
 };
 
 // Function to compare Arabic text using string similarity
@@ -70,12 +64,22 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob): Promise<string
     // Convert Blob to ArrayBuffer for the model
     const arrayBuffer = await audioBlob.arrayBuffer();
     
-    // Transcribe the audio
-    const result = await transcriber(new Uint8Array(arrayBuffer), {
-      return_timestamps: false
-    });
+    // Create a Float32Array from the audio buffer for the model
+    // This conversion is required because transformers.js expects specific input formats
+    const buffer = new Uint8Array(arrayBuffer);
     
-    return result.text || "";
+    // Transcribe the audio
+    const result = await transcriber(buffer);
+    
+    // Check if result is an array or a single object and extract text accordingly
+    let transcribedText = "";
+    if (Array.isArray(result)) {
+      transcribedText = result[0]?.text || "";
+    } else {
+      transcribedText = result?.text || "";
+    }
+    
+    return transcribedText;
   } catch (error) {
     console.error("Error transcribing with HuggingFace:", error);
     

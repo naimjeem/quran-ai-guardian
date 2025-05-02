@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import TarteelHeader from '@/components/TarteelHeader';
 import TarteelFooter from '@/components/TarteelFooter';
@@ -14,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { quranVerses } from '@/data/quranVerses';
 import { analyzeTarteel } from '@/services/recitationAnalyzer';
-import { Info, BookOpen, Mic, History, Volume2, Percent } from 'lucide-react';
+import { Info, BookOpen, Mic, History, Volume2, Percent, CheckCircle2 } from 'lucide-react';
 
 const Index = () => {
   const [selectedVerseId, setSelectedVerseId] = useState<string>("1-1");

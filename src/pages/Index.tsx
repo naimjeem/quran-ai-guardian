@@ -10,10 +10,11 @@ import AudioPlayer from '@/components/AudioPlayer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { quranVerses } from '@/data/quranVerses';
-import { analyzeTarteelRecitation } from '@/services/tarteelAI';
-import { Info, BookOpen, Mic, History, Volume2 } from 'lucide-react';
+import { analyzeTarteel } from '@/services/recitationAnalyzer';
+import { Info, BookOpen, Mic, History, Volume2, Compare, Percent } from 'lucide-react';
 
 const Index = () => {
   const [selectedVerseId, setSelectedVerseId] = useState<string>("1-1");
@@ -53,7 +54,7 @@ const Index = () => {
       }
       
       // Analyze the recitation
-      const result = await analyzeTarteelRecitation(audioBlob, targetVerse);
+      const result = await analyzeTarteel(audioBlob, targetVerse);
       
       // Update feedback and history
       setFeedback(result);
@@ -135,7 +136,23 @@ const Index = () => {
                       <div className="pt-2">
                         <AudioPlayer 
                           audioUrl={recordedAudioUrl} 
-                          label="Your Recitation" 
+                          label={
+                            <div className="flex items-center gap-2">
+                              <Mic className="h-4 w-4 text-tarteel-primary" />
+                              <span>Your Recitation</span>
+                              {feedback && (
+                                <Badge 
+                                  className={`ml-auto ${
+                                    feedback.accuracy >= 80 ? "bg-green-600" : 
+                                    feedback.accuracy >= 50 ? "bg-amber-500" : "bg-red-500"
+                                  } text-white`}
+                                >
+                                  <Percent className="h-3 w-3 mr-1" />
+                                  {feedback.accuracy}%
+                                </Badge>
+                              )}
+                            </div>
+                          }
                         />
                       </div>
                     )}
@@ -172,8 +189,8 @@ const Index = () => {
               <Tabs defaultValue="feedback" className="w-full">
                 <TabsList className="w-full">
                   <TabsTrigger value="feedback" className="flex-1">
-                    <Mic className="h-4 w-4 mr-2" />
-                    Recitation Feedback
+                    <Compare className="h-4 w-4 mr-2" />
+                    Recitation Analysis
                   </TabsTrigger>
                   <TabsTrigger value="history" className="flex-1">
                     <History className="h-4 w-4 mr-2" />

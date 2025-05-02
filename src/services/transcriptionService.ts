@@ -31,19 +31,86 @@ export const loadSpeechModel = async () => {
   return speechRecognitionPipeline;
 };
 
-// Mock function to simulate speech-to-text conversion with improved accuracy
+// Real function to transcribe audio using the browser's speech recognition API
 export const transcribeAudio = async (audioBlob: Blob): Promise<SpeechRecognitionResult> => {
-  // In a real implementation, we'd send this to a speech recognition service
-  // or process it with a local model like Hugging Face
-  
-  // For demo purposes, we're going to simulate a delay and return mock data
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  // Return mock transcription result with higher confidence
-  return {
-    text: "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ",
-    confidence: 0.92
-  };
+  try {
+    // First attempt to use HuggingFace Transformers
+    const text = await transcribeWithHuggingFace(audioBlob);
+    return {
+      text,
+      confidence: 0.85 // Estimating confidence as HF doesn't always provide this
+    };
+  } catch (error) {
+    console.error("Error transcribing audio:", error);
+    
+    // Fallback to Web Speech API if available
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      try {
+        const text = await transcribeWithWebSpeechAPI(audioBlob);
+        return {
+          text,
+          confidence: 0.7 // Lower confidence for Web Speech API
+        };
+      } catch (webSpeechError) {
+        console.error("Web Speech API failed:", webSpeechError);
+      }
+    }
+    
+    // If all else fails, inform the user
+    toast.error("Speech recognition failed. Please try again or use a different browser.");
+    throw new Error("Could not transcribe audio with any available method");
+  }
+};
+
+// Function to transcribe audio using Web Speech API
+const transcribeWithWebSpeechAPI = (audioBlob: Blob): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // Create an audio element to play the blob
+    const audio = new Audio();
+    const url = URL.createObjectURL(audioBlob);
+    audio.src = url;
+    
+    // Initialize speech recognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      reject(new Error("Speech recognition not supported in this browser"));
+      return;
+    }
+    
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ar-SA'; // Set language to Arabic
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    
+    let result = '';
+    
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0].transcript)
+        .join(' ');
+      result += transcript;
+    };
+    
+    recognition.onerror = (event) => {
+      reject(new Error(`Speech recognition error: ${event.error}`));
+    };
+    
+    recognition.onend = () => {
+      resolve(result || ""); // Return empty string if no result
+    };
+    
+    // Play the audio and start recognition
+    audio.onplay = () => {
+      recognition.start();
+    };
+    
+    audio.onended = () => {
+      recognition.stop();
+      URL.revokeObjectURL(url);
+    };
+    
+    audio.play().catch(reject);
+  });
 };
 
 // Function to transcribe audio using HuggingFace's transformers.js
@@ -60,7 +127,6 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob): Promise<string
     const arrayBuffer = await audioBlob.arrayBuffer();
     
     // Create a Float32Array from the audio buffer for the model
-    // This conversion is required because transformers.js expects specific input formats
     const buffer = new Uint8Array(arrayBuffer);
     
     // Transcribe the audio
@@ -74,17 +140,18 @@ export const transcribeWithHuggingFace = async (audioBlob: Blob): Promise<string
       transcribedText = result?.text || "";
     }
     
+    console.log("HuggingFace transcription result:", transcribedText);
     return transcribedText;
   } catch (error) {
     console.error("Error transcribing with HuggingFace:", error);
-    
-    // Fall back to mock implementation
-    console.log("Falling back to mock transcription");
-    
-    // Simulate a delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Return mock transcription (in a real app, we'd have better fallbacks)
-    return "بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ";
+    throw error;
   }
 };
+
+// Extend the Window interface to include SpeechRecognition
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}

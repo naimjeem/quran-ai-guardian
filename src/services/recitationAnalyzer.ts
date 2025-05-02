@@ -12,7 +12,7 @@ export const analyzeTarteel = async (
   targetVerse: QuranVerse
 ): Promise<RecitationFeedback> => {
   try {
-    // Step 1: Transcribe the audio
+    // Step 1: Transcribe the audio using real transcription service
     const transcription = await transcribeAudio(audioBlob);
     console.log("Transcription:", transcription);
     

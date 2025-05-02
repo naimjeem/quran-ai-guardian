@@ -3,7 +3,7 @@ import { QuranVerse } from "@/data/quranVerses";
 import { RecitationFeedback } from "@/components/FeedbackPanel";
 import { toast } from "sonner";
 import { calculateTextSimilarity } from "@/utils/textComparison";
-import { getMistakeDescription, generateSuggestions } from "@/utils/mistakeHelpers";
+import { getMistakeDescription, generateSuggestions, RecitationMistake } from "@/utils/mistakeHelpers";
 import { transcribeWithHuggingFace } from "@/services/transcriptionService";
 
 // Function to analyze the recitation and provide feedback
@@ -12,46 +12,28 @@ export const analyzeTarteelRecitation = async (
   targetVerse: QuranVerse
 ): Promise<RecitationFeedback> => {
   try {
-    // Step 1: Try to transcribe the audio using HuggingFace
+    // Step 1: Get real transcription using HuggingFace
     let transcribedText;
     try {
       transcribedText = await transcribeWithHuggingFace(audioBlob);
       console.log("HuggingFace transcription:", transcribedText);
     } catch (error) {
-      console.error("Error with HuggingFace transcription, using fallback:", error);
-      transcribedText = ""; // Use empty as fallback
+      console.error("Error with HuggingFace transcription:", error);
+      throw new Error("Failed to transcribe audio");
     }
     
-    // If transcription failed or is empty, use mock data
-    if (!transcribedText || transcribedText.trim() === "") {
-      console.log("Using mock transcription due to empty result");
-      transcribedText = targetVerse.arabicText;
-      
-      // Make some mock mistakes to simulate real analysis
-      const words = transcribedText.split(' ');
-      const modifiedWords = words.map((word, index) => {
-        // Randomly modify some words to simulate mistakes
-        if (Math.random() > 0.7) {
-          return word.slice(0, -1); // Remove last character to simulate mispronunciation
-        }
-        return word;
-      });
-      
-      transcribedText = modifiedWords.join(' ');
-    }
-    
-    // Compare with the target verse
+    // Calculate similarity with the target verse
     const similarity = calculateTextSimilarity(transcribedText, targetVerse.arabicText);
     console.log("Calculated similarity:", similarity);
     
-    // Parse results and generate feedback
+    // Parse results and generate real feedback
     const targetWords = targetVerse.arabicText.split(' ');
     const transcribedWords = transcribedText.split(' ');
     
     const correctWords: string[] = [];
-    const mistakes = [];
+    const mistakes: RecitationMistake[] = [];
     
-    // Calculate correct words and mistakes
+    // Calculate correct words and real mistakes
     for (let i = 0; i < targetWords.length; i++) {
       const targetWord = targetWords[i];
       
@@ -62,24 +44,48 @@ export const analyzeTarteelRecitation = async (
       if (isCorrect) {
         correctWords.push(targetWord);
       } else {
-        // Determine mistake type
-        let mistakeType: 'pronunciation' | 'tajweed' | 'omission' | 'addition' = 'pronunciation';
+        // Determine mistake type based on actual comparison
+        let mistakeType: 'pronunciation' | 'tajweed' | 'omission' | 'addition';
+        let severity: 'major' | 'minor';
         
         if (i >= transcribedWords.length) {
           mistakeType = 'omission';
+          severity = 'major';
         } else if (transcribedWords[i].length > targetWord.length + 2) {
           mistakeType = 'addition';
-        } else if (Math.random() > 0.5) { // Randomly assign tajweed vs pronunciation
-          mistakeType = 'tajweed';
+          severity = 'major';
+        } else {
+          const wordSimilarity = calculateTextSimilarity(targetWord, transcribedWords[i]);
+          if (wordSimilarity < 0.5) {
+            mistakeType = 'pronunciation';
+            severity = 'major';
+          } else {
+            mistakeType = 'tajweed';
+            severity = 'minor';
+          }
         }
         
-        // Add mistake
+        // Add the mistake with detailed information
         mistakes.push({
           type: mistakeType,
           word: targetWord,
           description: getMistakeDescription(mistakeType, targetWord),
-          severity: Math.random() > 0.5 ? 'minor' : 'major'
+          severity: severity
         });
+      }
+    }
+    
+    // Check for additional words in the transcription
+    if (transcribedWords.length > targetWords.length) {
+      for (let i = targetWords.length; i < transcribedWords.length; i++) {
+        if (transcribedWords[i] && transcribedWords[i].trim() !== '') {
+          mistakes.push({
+            type: 'addition',
+            word: transcribedWords[i],
+            description: `Extra word "${transcribedWords[i]}" was added to your recitation.`,
+            severity: 'major'
+          });
+        }
       }
     }
     

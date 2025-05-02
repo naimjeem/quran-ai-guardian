@@ -17,6 +17,7 @@ export interface RecitationFeedback {
   correctWords: string[];
   accuracy: number;
   suggestions: string[];
+  beginnerMode?: boolean;
 }
 
 interface FeedbackPanelProps {
@@ -25,6 +26,20 @@ interface FeedbackPanelProps {
 }
 
 const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) => {
+  // Calculate color for accuracy indicator
+  const getAccuracyColor = (accuracy: number, beginnerMode: boolean = false) => {
+    // More forgiving thresholds for beginner mode
+    if (beginnerMode) {
+      if (accuracy >= 70) return "bg-green-600";
+      if (accuracy >= 40) return "bg-amber-500";
+      return "bg-red-500";
+    } else {
+      if (accuracy >= 80) return "bg-green-600";
+      if (accuracy >= 50) return "bg-amber-500";
+      return "bg-red-500";
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full h-80">
@@ -55,21 +70,25 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) =>
     );
   }
 
-  // Calculate color for accuracy indicator
-  const getAccuracyColor = (accuracy: number) => {
-    if (accuracy >= 80) return "bg-green-600";
-    if (accuracy >= 50) return "bg-amber-500";
-    return "bg-red-500";
-  };
+  // Define thresholds based on mode
+  const goodThreshold = feedback.beginnerMode ? 70 : 80;
+  const okThreshold = feedback.beginnerMode ? 40 : 50;
 
   return (
     <Card className="w-full">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
-          <CardTitle>Recitation Feedback</CardTitle>
+          <div>
+            <CardTitle>Recitation Feedback</CardTitle>
+            {feedback.beginnerMode && (
+              <Badge variant="outline" className="ml-1 bg-blue-100 text-blue-700 border-blue-200">
+                Beginner Mode
+              </Badge>
+            )}
+          </div>
           <Badge 
-            variant={feedback.accuracy > 80 ? "default" : feedback.accuracy > 50 ? "secondary" : "destructive"}
-            className={feedback.accuracy > 80 ? "bg-green-600" : feedback.accuracy > 50 ? "bg-amber-500" : ""}
+            variant={feedback.accuracy > goodThreshold ? "default" : feedback.accuracy > okThreshold ? "secondary" : "destructive"}
+            className={feedback.accuracy > goodThreshold ? "bg-green-600" : feedback.accuracy > okThreshold ? "bg-amber-500" : ""}
           >
             Accuracy: {feedback.accuracy}%
           </Badge>
@@ -99,13 +118,13 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) =>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Accuracy</span>
                   <span className={`text-sm font-medium ${
-                    feedback.accuracy >= 80 ? 'text-green-700' : 
-                    feedback.accuracy >= 50 ? 'text-amber-700' : 'text-red-700'
+                    feedback.accuracy >= goodThreshold ? 'text-green-700' : 
+                    feedback.accuracy >= okThreshold ? 'text-amber-700' : 'text-red-700'
                   }`}>{feedback.accuracy}%</span>
                 </div>
                 <Progress 
                   value={feedback.accuracy} 
-                  className={`h-3 ${getAccuracyColor(feedback.accuracy)}`}
+                  className={`h-3 ${getAccuracyColor(feedback.accuracy, feedback.beginnerMode)}`}
                 />
               </div>
               
@@ -146,11 +165,19 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) =>
                   Recitation Summary
                 </h4>
                 <p className="mt-2 text-sm">
-                  {feedback.accuracy >= 80 
-                    ? "Excellent recitation! You've pronounced most words correctly with proper tajweed."
-                    : feedback.accuracy >= 50
-                    ? "Good effort! With more practice, you can improve your pronunciation and tajweed."
-                    : "Keep practicing! Focus on the words highlighted as mistakes above."}
+                  {feedback.beginnerMode ? (
+                    feedback.accuracy >= goodThreshold 
+                      ? "Great job! Your recitation is showing excellent progress for a beginner!"
+                      : feedback.accuracy >= okThreshold
+                      ? "Good effort! Keep practicing and you'll continue to improve."
+                      : "Keep trying! Learning to recite takes time and practice."
+                  ) : (
+                    feedback.accuracy >= goodThreshold 
+                      ? "Excellent recitation! You've pronounced most words correctly with proper tajweed."
+                      : feedback.accuracy >= okThreshold
+                      ? "Good effort! With more practice, you can improve your pronunciation and tajweed."
+                      : "Keep practicing! Focus on the words highlighted as mistakes above."
+                  )}
                 </p>
               </div>
             </div>

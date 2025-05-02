@@ -9,7 +9,8 @@ import { transcribeAudio, transcribeWithHuggingFace, SpeechRecognitionResult } f
 // Function to analyze the recitation and provide feedback with improved accuracy
 export const analyzeTarteel = async (
   audioBlob: Blob, 
-  targetVerse: QuranVerse
+  targetVerse: QuranVerse,
+  beginnerMode: boolean = false
 ): Promise<RecitationFeedback> => {
   try {
     // Step 1: Transcribe the audio using real transcription service
@@ -44,7 +45,8 @@ export const analyzeTarteel = async (
         mistakes,
         correctWords,
         accuracy,
-        suggestions: generateSuggestions(mistakes, targetVerse.surahName)
+        suggestions: generateSuggestions(mistakes, targetVerse.surahName, beginnerMode),
+        beginnerMode
       };
     }
     
@@ -59,6 +61,10 @@ export const analyzeTarteel = async (
     const correctWords: string[] = [];
     const mistakes: RecitationMistake[] = [];
     
+    // Set threshold based on mode (more forgiving for beginner mode)
+    const wordSimilarityThreshold = beginnerMode ? 0.65 : 0.8;
+    const minorMistakeThreshold = beginnerMode ? 0.4 : 0.5;
+    
     // More sophisticated comparison of words
     for (let i = 0; i < targetWords.length; i++) {
       const targetWord = targetWords[i];
@@ -66,7 +72,7 @@ export const analyzeTarteel = async (
       
       // Check if the word was correctly recited using word-level similarity
       const wordSimilarity = calculateWordSimilarity(targetWord, transcribedWord);
-      const isCorrect = wordSimilarity > 0.8;
+      const isCorrect = wordSimilarity > wordSimilarityThreshold;
       
       if (isCorrect) {
         correctWords.push(targetWord);
@@ -78,7 +84,7 @@ export const analyzeTarteel = async (
           mistakeType = 'omission';
         } else if (transcribedWord.length > targetWord.length + 2) {
           mistakeType = 'addition';
-        } else if (wordSimilarity < 0.5) {
+        } else if (wordSimilarity < minorMistakeThreshold) {
           mistakeType = 'pronunciation';
         } else {
           mistakeType = 'tajweed';
@@ -88,8 +94,8 @@ export const analyzeTarteel = async (
         mistakes.push({
           type: mistakeType,
           word: targetWord,
-          description: getMistakeDescription(mistakeType, targetWord),
-          severity: wordSimilarity < 0.5 ? 'major' : 'minor'
+          description: getMistakeDescription(mistakeType, targetWord, beginnerMode),
+          severity: wordSimilarity < minorMistakeThreshold ? 'major' : 'minor'
         });
       }
     }
@@ -101,7 +107,7 @@ export const analyzeTarteel = async (
           type: 'addition',
           word: transcribedWords[i],
           description: `Extra word "${transcribedWords[i]}" was added to your recitation.`,
-          severity: 'major'
+          severity: 'minor' // More forgiving in severity for non-Arabic speakers
         });
       }
     }
@@ -110,16 +116,23 @@ export const analyzeTarteel = async (
     // Instead of using similarity, we'll use the ratio of correct words to total words
     const correctWordsCount = correctWords.length;
     const totalWordsCount = targetWords.length;
-    const accuracy = Math.round((correctWordsCount / totalWordsCount) * 100);
+    let accuracy = Math.round((correctWordsCount / totalWordsCount) * 100);
+    
+    // Boost accuracy slightly for beginner mode
+    if (beginnerMode && accuracy < 100) {
+      // Add a boost of 10-15% for beginners but cap at 98%
+      accuracy = Math.min(98, Math.round(accuracy * 1.15));
+    }
     
     // Generate suggestions based on mistakes
-    const suggestions = generateSuggestions(mistakes, targetVerse.surahName);
+    const suggestions = generateSuggestions(mistakes, targetVerse.surahName, beginnerMode);
     
     return {
       mistakes,
       correctWords,
       accuracy,
-      suggestions
+      suggestions,
+      beginnerMode
     };
   } catch (error) {
     console.error("Error analyzing recitation:", error);
@@ -139,19 +152,24 @@ export const analyzeTarteel = async (
         word: word,
         description: getMistakeDescription(
           Math.random() > 0.5 ? 'pronunciation' : 'tajweed', 
-          word
+          word,
+          beginnerMode
         ),
         severity: Math.random() > 0.7 ? 'major' : 'minor'
       } as RecitationMistake));
     
     // Random accuracy between 40% and 90%
-    const accuracy = Math.floor(40 + Math.random() * 50);
+    let accuracy = Math.floor(40 + Math.random() * 50);
+    if (beginnerMode) {
+      accuracy = Math.min(98, Math.round(accuracy * 1.15)); // Boost for beginners
+    }
     
     return {
       mistakes,
       correctWords,
       accuracy,
-      suggestions: generateSuggestions(mistakes, targetVerse.surahName)
+      suggestions: generateSuggestions(mistakes, targetVerse.surahName, beginnerMode),
+      beginnerMode
     };
   }
 };

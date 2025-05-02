@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import TarteelHeader from '@/components/TarteelHeader';
 import TarteelFooter from '@/components/TarteelFooter';
@@ -6,6 +7,7 @@ import VerseSelector from '@/components/VerseSelector';
 import VerseDisplay from '@/components/VerseDisplay';
 import FeedbackPanel, { RecitationFeedback } from '@/components/FeedbackPanel';
 import AudioPlayer from '@/components/AudioPlayer';
+import BeginnerModeToggle from '@/components/BeginnerModeToggle';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -20,10 +22,12 @@ const Index = () => {
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [feedback, setFeedback] = useState<RecitationFeedback | null>(null);
+  const [beginnerMode, setBeginnerMode] = useState<boolean>(false);
   const [recitationHistory, setRecitationHistory] = useState<Array<{
     timestamp: Date;
     verseId: string;
     accuracy: number;
+    beginnerMode: boolean;
   }>>([]);
   
   // Get the selected verse object
@@ -33,6 +37,13 @@ const Index = () => {
     setSelectedVerseId(verseId);
     setRecordedAudioUrl(null);
     setFeedback(null);
+  };
+  
+  const toggleBeginnerMode = (enabled: boolean) => {
+    setBeginnerMode(enabled);
+    toast.info(enabled ? 
+      "Beginner mode activated. Feedback will be more encouraging." : 
+      "Standard mode activated. Feedback will be more precise.");
   };
   
   const handleRecordingComplete = async (audioBlob: Blob) => {
@@ -52,8 +63,8 @@ const Index = () => {
         throw new Error("Selected verse not found");
       }
       
-      // Analyze the recitation
-      const result = await analyzeTarteel(audioBlob, targetVerse);
+      // Analyze the recitation with beginner mode flag
+      const result = await analyzeTarteel(audioBlob, targetVerse, beginnerMode);
       
       // Update feedback and history
       setFeedback(result);
@@ -61,17 +72,28 @@ const Index = () => {
         {
           timestamp: new Date(),
           verseId: selectedVerseId,
-          accuracy: result.accuracy
+          accuracy: result.accuracy,
+          beginnerMode: beginnerMode
         },
         ...prev.slice(0, 9) // Keep only the 10 most recent entries
       ]);
       
-      if (result.accuracy > 80) {
-        toast.success("Excellent recitation! Great job!");
-      } else if (result.accuracy > 50) {
-        toast.info("Good effort! See feedback for improvement areas.");
+      // Adjust feedback thresholds for beginner mode
+      const goodThreshold = beginnerMode ? 70 : 80;
+      const okThreshold = beginnerMode ? 40 : 50;
+      
+      if (result.accuracy > goodThreshold) {
+        toast.success(beginnerMode ? 
+          "Great job! Your recitation shows excellent progress!" : 
+          "Excellent recitation! Great job!");
+      } else if (result.accuracy > okThreshold) {
+        toast.info(beginnerMode ?
+          "Good effort! Keep practicing to improve." :
+          "Good effort! See feedback for improvement areas.");
       } else {
-        toast.warning("Keep practicing! Check the feedback for guidance.");
+        toast.info(beginnerMode ?
+          "Keep trying! Learning takes time and practice." :
+          "Keep practicing! Check the feedback for guidance.");
       }
     } catch (error) {
       console.error("Error processing recitation:", error);
@@ -110,6 +132,13 @@ const Index = () => {
                       onVerseSelect={handleVerseSelect} 
                     />
                     
+                    <div className="pt-2">
+                      <BeginnerModeToggle 
+                        enabled={beginnerMode}
+                        onToggle={toggleBeginnerMode}
+                      />
+                    </div>
+                    
                     {selectedVerse?.recitationUrl && (
                       <div className="mt-4 pt-4 border-t border-tarteel-gold/20">
                         <AudioPlayer
@@ -142,8 +171,8 @@ const Index = () => {
                               {feedback && (
                                 <Badge 
                                   className={`ml-auto ${
-                                    feedback.accuracy >= 80 ? "bg-green-600" : 
-                                    feedback.accuracy >= 50 ? "bg-amber-500" : "bg-red-500"
+                                    feedback.accuracy >= (beginnerMode ? 70 : 80) ? "bg-green-600" : 
+                                    feedback.accuracy >= (beginnerMode ? 40 : 50) ? "bg-amber-500" : "bg-red-500"
                                   } text-white`}
                                 >
                                   <Percent className="h-3 w-3 mr-1" />
@@ -168,10 +197,10 @@ const Index = () => {
                   
                   <ol className="list-decimal list-inside space-y-2 text-sm">
                     <li>Select a verse from the dropdown</li>
+                    <li>Toggle {beginnerMode ? "off" : "on"} Beginner Mode if you're new to Arabic</li>
                     <li>Listen to the professional Qari recitation</li>
                     <li>Click "Start Recording" and recite the verse</li>
                     <li>Click "Stop Recording" when done</li>
-                    <li>Wait for AI analysis of your recitation</li>
                     <li>Review feedback to improve your recitation</li>
                   </ol>
                   
@@ -223,7 +252,14 @@ const Index = () => {
                               className="flex items-center justify-between p-3 border rounded-md hover:bg-muted/50"
                             >
                               <div>
-                                <p className="font-medium">{getVerseName(entry.verseId)}</p>
+                                <div className="flex items-center">
+                                  <p className="font-medium">{getVerseName(entry.verseId)}</p>
+                                  {entry.beginnerMode && (
+                                    <Badge variant="outline" className="ml-2 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                      Beginner
+                                    </Badge>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground">
                                   {entry.timestamp.toLocaleString()}
                                 </p>
@@ -231,9 +267,9 @@ const Index = () => {
                               <div>
                                 <span 
                                   className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    entry.accuracy > 80 
+                                    entry.accuracy > (entry.beginnerMode ? 70 : 80)
                                       ? 'bg-green-100 text-green-800' 
-                                      : entry.accuracy > 50 
+                                      : entry.accuracy > (entry.beginnerMode ? 40 : 50)
                                         ? 'bg-amber-100 text-amber-800' 
                                         : 'bg-red-100 text-red-800'
                                   }`}

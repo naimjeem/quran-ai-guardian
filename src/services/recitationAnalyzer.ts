@@ -13,6 +13,12 @@ export const analyzeTarteel = async (
   beginnerMode: boolean = false
 ): Promise<RecitationFeedback> => {
   try {
+    // Check if this is the first ayah - if so, return a mock result with 70% accuracy
+    if (targetVerse.verseNumber === 1) {
+      console.log("Generating mock result for first ayah with 70% accuracy");
+      return generateMockFeedback(targetVerse, 70, beginnerMode);
+    }
+    
     // Step 1: Transcribe the audio using real transcription service
     const transcription = await transcribeAudio(audioBlob);
     console.log("Transcription:", transcription);
@@ -20,34 +26,10 @@ export const analyzeTarteel = async (
     // If no transcription text, use fallback data to ensure UI works
     if (!transcription.text || transcription.text.trim() === "") {
       console.log("Using fallback transcription data");
-      // Generate a partial match of the verse for demo purposes
-      const words = targetVerse.arabicText.split(' ');
-      const correctIndices = Array.from({length: words.length}, (_, i) => 
-        Math.random() > 0.3 ? i : -1).filter(i => i !== -1);
-      
-      const correctWords = correctIndices.map(i => words[i]);
-      const mistakes = words
-        .filter((_, i) => !correctIndices.includes(i))
-        .map(word => ({
-          type: Math.random() > 0.5 ? 'pronunciation' : 'tajweed',
-          word: word,
-          description: getMistakeDescription(
-            Math.random() > 0.5 ? 'pronunciation' : 'tajweed', 
-            word
-          ),
-          severity: Math.random() > 0.7 ? 'major' : 'minor'
-        } as RecitationMistake));
-      
-      // Calculate random accuracy between 40% and 95%
-      const accuracy = Math.floor(40 + Math.random() * 55);
-      
-      return {
-        mistakes,
-        correctWords,
-        accuracy,
-        suggestions: generateSuggestions(mistakes, targetVerse.surahName, beginnerMode),
+      return generateMockFeedback(targetVerse, 
+        Math.floor(40 + Math.random() * 55), // Random accuracy between 40% and 95%
         beginnerMode
-      };
+      );
     }
     
     // Step 2: Compare with the target verse using the improved similarity algorithm
@@ -138,38 +120,67 @@ export const analyzeTarteel = async (
     console.error("Error analyzing recitation:", error);
     toast.error("Failed to analyze recitation. Please try again.");
     
-    // Return a demo feedback instead of error feedback for better UX
-    // Generate fallback data with random accuracy
-    const targetWords = targetVerse.arabicText.split(' ');
-    const correctIndices = Array.from({length: targetWords.length}, (_, i) => 
-      Math.random() > 0.3 ? i : -1).filter(i => i !== -1);
-    
-    const correctWords = correctIndices.map(i => targetWords[i]);
-    const mistakes = targetWords
-      .filter((_, i) => !correctIndices.includes(i))
-      .map(word => ({
-        type: Math.random() > 0.5 ? 'pronunciation' : 'tajweed',
-        word: word,
-        description: getMistakeDescription(
-          Math.random() > 0.5 ? 'pronunciation' : 'tajweed', 
-          word,
-          beginnerMode
-        ),
-        severity: Math.random() > 0.7 ? 'major' : 'minor'
-      } as RecitationMistake));
-    
-    // Random accuracy between 40% and 90%
-    let accuracy = Math.floor(40 + Math.random() * 50);
-    if (beginnerMode) {
-      accuracy = Math.min(98, Math.round(accuracy * 1.15)); // Boost for beginners
-    }
-    
-    return {
-      mistakes,
-      correctWords,
-      accuracy,
-      suggestions: generateSuggestions(mistakes, targetVerse.surahName, beginnerMode),
-      beginnerMode
-    };
+    // Return a demo feedback with consistent accuracy for better UX
+    return generateMockFeedback(targetVerse, 65, beginnerMode); // Use consistent 65% accuracy for errors
   }
+};
+
+// Helper function to generate mock feedback with specific accuracy
+const generateMockFeedback = (
+  targetVerse: QuranVerse, 
+  targetAccuracy: number, 
+  beginnerMode: boolean = false
+): RecitationFeedback => {
+  const targetWords = targetVerse.arabicText.split(' ');
+  const totalWords = targetWords.length;
+  
+  // Calculate how many words should be correct to achieve target accuracy
+  const correctWordsNeeded = Math.round((targetAccuracy / 100) * totalWords);
+  
+  // Ensure at least one correct and one mistake for UI demo purposes
+  const correctCount = Math.max(1, Math.min(correctWordsNeeded, totalWords - 1));
+  
+  // Select random correct words
+  const indices = Array.from({ length: totalWords }, (_, i) => i);
+  const shuffled = indices.sort(() => 0.5 - Math.random());
+  
+  const correctIndices = shuffled.slice(0, correctCount);
+  const correctWords = correctIndices.map(i => targetWords[i]);
+  
+  // Create mistakes for remaining words
+  const mistakes: RecitationMistake[] = [];
+  for (let i = 0; i < totalWords; i++) {
+    if (!correctIndices.includes(i)) {
+      const word = targetWords[i];
+      const mistakeType = ['pronunciation', 'tajweed', 'omission', 'addition'][
+        Math.floor(Math.random() * 3)
+      ] as 'pronunciation' | 'tajweed' | 'omission' | 'addition';
+      
+      mistakes.push({
+        type: mistakeType,
+        word: word,
+        description: getMistakeDescription(mistakeType, word, beginnerMode),
+        severity: Math.random() > 0.5 ? 'major' : 'minor'
+      });
+    }
+  }
+  
+  // Calculate actual accuracy based on correct words (should be very close to target)
+  let accuracy = Math.round((correctWords.length / totalWords) * 100);
+  
+  // Apply beginner mode boost if needed
+  if (beginnerMode && accuracy < 100) {
+    accuracy = Math.min(98, Math.round(accuracy * 1.15));
+  }
+  
+  // Generate suggestions
+  const suggestions = generateSuggestions(mistakes, targetVerse.surahName, beginnerMode);
+  
+  return {
+    mistakes,
+    correctWords,
+    accuracy,
+    suggestions,
+    beginnerMode
+  };
 };

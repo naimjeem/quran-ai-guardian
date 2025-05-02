@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle2, XCircle, AlertCircle, Info, Compare } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -81,7 +80,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) =>
         <Tabs defaultValue="comparison">
           <TabsList className="w-full">
             <TabsTrigger value="comparison" className="flex-1">
-              <Compare className="h-4 w-4 mr-2" />
+              <CheckCircle2 className="h-4 w-4 mr-2" />
               Comparison
             </TabsTrigger>
             <TabsTrigger value="mistakes" className="flex-1">
@@ -93,7 +92,7 @@ const FeedbackPanel: React.FC<FeedbackPanelProps> = ({ feedback, isLoading }) =>
             <TabsTrigger value="suggestions" className="flex-1">Suggestions</TabsTrigger>
           </TabsList>
           
-          {/* New Comparison Tab */}
+          {/* Comparison Tab */}
           <TabsContent value="comparison" className="mt-4">
             <div className="space-y-4">
               <div>

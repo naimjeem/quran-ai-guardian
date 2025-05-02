@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { quranVerses } from '@/data/quranVerses';
 import { analyzeTarteel } from '@/services/recitationAnalyzer';
-import { Info, BookOpen, Mic, History, Volume2, Compare, Percent } from 'lucide-react';
+import { Info, BookOpen, Mic, History, Volume2, Percent } from 'lucide-react';
 
 const Index = () => {
   const [selectedVerseId, setSelectedVerseId] = useState<string>("1-1");
@@ -189,7 +189,7 @@ const Index = () => {
               <Tabs defaultValue="feedback" className="w-full">
                 <TabsList className="w-full">
                   <TabsTrigger value="feedback" className="flex-1">
-                    <Compare className="h-4 w-4 mr-2" />
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
                     Recitation Analysis
                   </TabsTrigger>
                   <TabsTrigger value="history" className="flex-1">
